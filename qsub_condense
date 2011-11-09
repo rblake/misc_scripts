@@ -1,0 +1,100 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+my @files;
+my %procs;
+my %names;
+my $proc_count=0;
+foreach my $file (@ARGV) {
+    # get the full path of the file
+    $file = abspath($file);
+
+    #search through the file and get the number of processes it needs.
+    open(SCRIPT, $file) or die "Can't open file $file: $!\n";
+    $names{$file}=$file;
+    my $this_proc_count = 0;
+    while (my $line = <SCRIPT>) {
+	if ($line =~ /^#PBS -l nodes=(\d+):ppn=(\d+)/) {
+	    my $nodes = $1;
+	    my $ppn = $2;
+	    $ppn=8 if $ppn > 8;
+	    $this_proc_count = $nodes*$ppn;
+	}   
+	$names{$file} = $1 if $line =~ /^#PBS -N (.*)/;
+    }
+    if ($this_proc_count) {
+	$proc_count += $this_proc_count;
+	$procs{$file} = $this_proc_count;
+	if ($this_proc_count >= 8) {
+	    unshift @files, $file;
+	} else {
+	    push @files, $file;
+	}
+    }
+}
+
+
+my $job_name = join(":", @names{@files});
+my $node_count = int(($proc_count+7)/8);
+
+#write out the actual qsub script
+#open(OUTPUT, ">asdfasdf");
+open(OUTOUT, "| qsub");
+
+print OUTPUT <<EOF
+#!/bin/bash
+
+##################################
+## YOU CAN SET THESE PARAMETERS ##
+# Join output and error into one file
+#PBS -j oe
+# Name of the file where the combined output should go
+#PBS -o experiment.out
+# Name of the job that shows  up in qstat
+#PBS -N $job_name
+# How many nodes and processes per node to use.  
+# Always use 8 to avoid wasting processors
+#PBS -l nodes=$node_count:ppn=8
+# Set the job to run for 10 days maximum of one day.  
+# Otherwise, the maximum walltime is ridiculously short.
+#PBS -l walltime=24000:00:00
+##################################
+
+export original_pbs_nodefile="\$PBS_NODEFILE"
+
+exec 9<\$original_pbs_nodefile
+
+nodefiles=( )
+EOF
+    ;
+
+my $counter = 0;
+foreach my $file (@files) {
+    #print out host files for each of the subscripts.
+    print OUTPUT "\nexport PBS_NODEFILE=`mktemp`\n";
+    print OUTPUT "nodefiles[\${#nodefiles[*]}]=\$PBS_NODEFILE\n";
+
+    for (my $ii=0; $ii<$procs{$file}; $ii++) {
+	print OUTPUT "read -u9 line; echo \$line >> \$PBS_NODEFILE\n";
+    }
+    
+    #run the script.
+    print OUTPUT "$file &\n";
+    $counter++;
+}
+
+
+print OUTPUT <<EOF
+
+wait
+
+for ii in "\${nodefiles[@]}"
+do
+  rm -f \$ii
+done
+
+EOF
+;
+close(OUTPUT);
+
