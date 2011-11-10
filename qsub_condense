@@ -1,14 +1,17 @@
 #!/usr/bin/perl -w
 
 use strict;
+use Cwd 'abs_path';
 
+my $processors_per_node = 8;
+
+# collect info about the files
 my @files;
 my %procs;
 my %names;
-my $proc_count=0;
 foreach my $file (@ARGV) {
     # get the full path of the file
-    $file = abspath($file);
+    $file = abs_path($file);
 
     #search through the file and get the number of processes it needs.
     open(SCRIPT, $file) or die "Can't open file $file: $!\n";
@@ -18,31 +21,64 @@ foreach my $file (@ARGV) {
 	if ($line =~ /^#PBS -l nodes=(\d+):ppn=(\d+)/) {
 	    my $nodes = $1;
 	    my $ppn = $2;
-	    $ppn=8 if $ppn > 8;
 	    $this_proc_count = $nodes*$ppn;
-	}   
+	}
 	$names{$file} = $1 if $line =~ /^#PBS -N (.*)/;
     }
-    if ($this_proc_count) {
-	$proc_count += $this_proc_count;
-	$procs{$file} = $this_proc_count;
-	if ($this_proc_count >= 8) {
-	    unshift @files, $file;
-	} else {
-	    push @files, $file;
+    $procs{$file} = $this_proc_count;
+    push @files, $file;
+}
+
+# sort the file list by processor count mod 8.  8 => 8, not 0.
+@files = sort { leftover($procs{$b}) <=> leftover($procs{$a}); } @files; 
+
+sub leftover {
+    my ($x) = @_;
+    return (($x-1) % $processors_per_node)+1;
+}
+
+# bin the jobs together.  Try to minimize the total number of
+#processors allocated while maximizing the number of jobs created.
+my $bins = [];
+foreach my $file (@files) {
+    #search through all the existing bins for a place to put this job.
+    my $found_free_space=0;
+    foreach my $bin (@$bins) {
+	if ($bin->{free} >= leftover($procs{$file})) {
+
+	    $bin->{free} -= leftover($procs{$file});
+	    push @{$bin->{files}}, $file;
+	    $bin->{proc_count} += $procs{$file};
+
+	    $found_free_space=1;
+	    last;
 	}
+    }
+    if (not $found_free_space) {
+	#make a new bin.
+	my $bin = {};
+
+	$bin->{free} = $processors_per_node-leftover($procs{$file});
+	$bin->{files} = [$file];
+	$bin->{proc_count} = $procs{$file};
+
+	push @$bins, $bin;
     }
 }
 
+# print out jobs for each bin.
+my $counter = 0;
+foreach my $bin (@$bins) {
+    my @bin_files = @{$bin->{files}};
+    my $job_name = join(":", @names{@bin_files});
+    my $node_count = int(($bin->{proc_count}+$processors_per_node-1)/$processors_per_node);
 
-my $job_name = join(":", @names{@files});
-my $node_count = int(($proc_count+7)/8);
 
-#write out the actual qsub script
-#open(OUTPUT, ">asdfasdf");
-open(OUTOUT, "| qsub");
+    # write out the actual qsub script
+    #open(OUTPUT, ">test$counter"); $counter++;
+    open(OUTPUT, "| qsub");
 
-print OUTPUT <<EOF
+    print OUTPUT <<EOF
 #!/bin/bash
 
 ##################################
@@ -69,23 +105,21 @@ nodefiles=( )
 EOF
     ;
 
-my $counter = 0;
-foreach my $file (@files) {
-    #print out host files for each of the subscripts.
-    print OUTPUT "\nexport PBS_NODEFILE=`mktemp`\n";
-    print OUTPUT "nodefiles[\${#nodefiles[*]}]=\$PBS_NODEFILE\n";
-
-    for (my $ii=0; $ii<$procs{$file}; $ii++) {
-	print OUTPUT "read -u9 line; echo \$line >> \$PBS_NODEFILE\n";
+    foreach my $file (@bin_files) {
+	#print out host files for each of the subscripts.
+	print OUTPUT "\nexport PBS_NODEFILE=`mktemp`\n";
+	print OUTPUT "nodefiles[\${#nodefiles[*]}]=\$PBS_NODEFILE\n";
+	
+	for (my $ii=0; $ii<$procs{$file}; $ii++) {
+	    print OUTPUT "read -u9 line; echo \$line >> \$PBS_NODEFILE\n";
+	}
+	
+	#run the script.
+	print OUTPUT "$file &\n";
     }
     
-    #run the script.
-    print OUTPUT "$file &\n";
-    $counter++;
-}
 
-
-print OUTPUT <<EOF
+    print OUTPUT <<EOF
 
 wait
 
@@ -96,5 +130,8 @@ done
 
 EOF
 ;
-close(OUTPUT);
+    close(OUTPUT);
+
+
+}
 
