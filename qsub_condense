@@ -4,7 +4,44 @@ use strict;
 use Cwd 'abs_path';
 use IPC::Open2;
 
+
 my $processors_per_node = 8;
+
+sub usage {
+    print <<EOF
+Usage: $0 job1.sh [job2.sh [job3.sh ...]]
+
+Submits all your jobs scripts, but tries to combine smaller jobs
+together into groups of $processors_per_node to ensure that you
+allocate the minimum number of nodes possible.
+
+To use this script effectively, you must set the following line in
+your job script:
+#PBS -l nodes=N:ppn=P
+
+... where N*P is the total number of nodes you'd like to run your
+script on.
+
+This script also recognizes the following options in each job file:
+name=name - set with '#PBS -N name'
+output=out - set with '#PBS -o out'
+error=err - set with '#PBS -e err'
+join - set with '#PBS -j oe'
+
+These options take the default values supplied by PBS if not specified.
+
+EOF
+;
+  die join("\n",@_) . "\n" if @_;
+}
+
+usage("Please supply a job file") if not (@ARGV);
+
+if ($ARGV[0] eq '-h' or $ARGV[0] eq '--help') {
+    usage();
+    exit(0);
+}
+
 
 # collect info about the files
 my @files;
