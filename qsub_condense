@@ -2,6 +2,7 @@
 
 use strict;
 use Cwd 'abs_path';
+use IPC::Open2;
 
 my $processors_per_node = 8;
 
@@ -96,7 +97,7 @@ foreach my $bin (@$bins) {
 
     # write out the actual qsub script
     #open(OUTPUT, ">test$counter"); $counter++;
-    open(OUTPUT, "| qsub");
+    open2(\*INPUT, \*OUTPUT, 'qsub');
 
     print OUTPUT <<EOF
 #!/bin/bash
@@ -105,8 +106,6 @@ foreach my $bin (@$bins) {
 ## YOU CAN SET THESE PARAMETERS ##
 # Join output and error into one file
 #PBS -j oe
-# Name of the file where the combined output should go
-#PBS -o experiment.out
 # Name of the job that shows  up in qstat
 #PBS -N $job_name
 # How many nodes and processes per node to use.  
@@ -152,6 +151,7 @@ EOF
 ;
     close(OUTPUT);
 
-
+    print <INPUT>;
+    close(INPUT);
 }
 
