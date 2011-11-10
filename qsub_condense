@@ -9,24 +9,44 @@ my $processors_per_node = 8;
 my @files;
 my %procs;
 my %names;
+my %output_directives;
 foreach my $file (@ARGV) {
     # get the full path of the file
-    $file = abs_path($file);
+    my $absfile = abs_path($file);
 
     #search through the file and get the number of processes it needs.
     open(SCRIPT, $file) or die "Can't open file $file: $!\n";
-    $names{$file}=$file;
+    $names{$absfile}=$file;
     my $this_proc_count = 0;
+    my $join_std_err = 0;
+    my $output = '';
+    my $error = '';
     while (my $line = <SCRIPT>) {
 	if ($line =~ /^#PBS -l nodes=(\d+):ppn=(\d+)/) {
 	    my $nodes = $1;
 	    my $ppn = $2;
 	    $this_proc_count = $nodes*$ppn;
 	}
-	$names{$file} = $1 if $line =~ /^#PBS -N (.*)/;
+	$names{$absfile} = $1 if $line =~ /^#PBS -N (.*)/;
+	$join_std_err = 1 if $line =~ /^#PBS -j oe/;
+	$output = $1 if $line =~ /^#PBS -o (.*)/;
+	$error = $1 if $line =~ /^#PBS -e (.*)/;
     }
-    $procs{$file} = $this_proc_count;
-    push @files, $file;
+    $procs{$absfile} = $this_proc_count;
+    $output_directives{$absfile} = "";
+    if ($output) {
+	$output_directives{$absfile} .= " >| $output";
+    } else {
+	$output_directives{$absfile} .= " >| $names{$absfile}.o\$PBS_JOBID";
+    }
+    if ($error) {
+	$output_directives{$absfile} .= " 2>| $error";	
+    } elsif ($join_std_err) {
+	$output_directives{$absfile} .= " 2>&1";	
+    } else {
+	$output_directives{$absfile} .= " 2>| $names{$absfile}.e\$PBS_JOBID";	
+    }
+    push @files, $absfile;
 }
 
 # sort the file list by processor count mod 8.  8 => 8, not 0.
@@ -115,7 +135,7 @@ EOF
 	}
 	
 	#run the script.
-	print OUTPUT "$file &\n";
+	print OUTPUT "$file $output_directives{$file} &\n";
     }
     
 
