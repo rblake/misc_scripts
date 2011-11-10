@@ -8,18 +8,19 @@ use IPC::Open2;
 my $processors_per_node = 8;
 
 sub usage {
+    my $p = $processors_per_node;
     print <<EOF
 Usage: $0 job1.sh [job2.sh [job3.sh ...]]
 
 Submits all your jobs scripts, but tries to combine smaller jobs
-together into groups of $processors_per_node to ensure that you
-allocate the minimum number of nodes possible.
+together into groups of $p to ensure that you allocate the minimum
+number of nodes possible.
 
 To use this script effectively, you must set the following line in
 your job script:
 #PBS -l nodes=N:ppn=P
 
-... where N*P is the total number of nodes you'd like to run your
+... where N*P is the total number of processors you'd like to run your
 script on.
 
 This script also recognizes the following options in each job file:
