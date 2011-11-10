@@ -27,7 +27,7 @@ foreach my $job (@jobs) {
     #ssh into the nodes to find out if they are actually unused.
     my $unused_count=0;
     foreach my $machine (keys %hostcount) {
-	#open(COMMAND, "ssh $machine 'grep -e \"^processor\" /proc/cpuinfo | wc -l ' |");
+	#open(COMMAND, "ssh -n $machine 'grep -e \"^processor\" /proc/cpuinfo | wc -l ' |");
 	#my $count = <COMMAND>;
 	#close(COMMAND);
 	my $count = 8;
@@ -38,7 +38,7 @@ foreach my $job (@jobs) {
 	# leave one processor on each machine
 	#$count--;
 
-	open(COMMAND, "ssh $machine 'ps ax' |");
+	open(COMMAND, "ssh -n $machine 'ps ax' |");
 	foreach my $line (<COMMAND>) {
 	    if ($line =~ m,^\s*\d+\s+\S+\s+(?:R|D)\S*\s+\d+:\d+\s+(\S.*),) {
 		my $command = $1;
