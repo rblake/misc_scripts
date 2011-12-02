@@ -154,8 +154,9 @@ foreach my $bin (@$bins) {
 #PBS -l walltime=24000:00:00
 ##################################
 
-export original_pbs_nodefile="\$PBS_NODEFILE"
+cd $PBS_O_WORKDIR
 
+export original_pbs_nodefile="\$PBS_NODEFILE"
 exec 9<\$original_pbs_nodefile
 
 nodefiles=( )
@@ -172,7 +173,7 @@ EOF
 	}
 	
 	#run the script.
-	print OUTPUT "$file $output_directives{$file} &\n";
+	print OUTPUT "bash $file $output_directives{$file} &\n";
     }
     
 
