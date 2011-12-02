@@ -29,24 +29,22 @@ foreach my $job (@jobs) {
     foreach my $machine (keys %hostcount) {
 	#open(COMMAND, "ssh -n $machine 'grep -e \"^processor\" /proc/cpuinfo | wc -l ' |");
 	#my $count = <COMMAND>;
+	#chomp $count;
 	#close(COMMAND);
-	my $count = 8;
-	
-	chomp $count;
-	next if $count !~ /^\d+$/;
+	#next if $count !~ /^\d+$/;
 
 	# leave one processor on each machine
 	#$count--;
 
-	open(COMMAND, "ssh -n $machine 'ps ax' |");
+	my $count = 8;
+	
+	open(COMMAND, "ssh -n $machine 'uptime' |") or next;
 	foreach my $line (<COMMAND>) {
-	    if ($line =~ m,^\s*\d+\s+\S+\s+(?:R|D)\S*\s+\d+:\d+\s+(\S.*),) {
-		my $command = $1;
-		#print "($command)\n";
-		next if $command =~ /^grep/;
-		next if $command =~ /^ps/;
-		
-		$count--;
+	    if ($line =~ /load average:\s+\S+,\s+\S+,\s+(\d*\.\d+)/) {
+		my $load = $1;
+		$load += 0.70; # round up.
+		$count -= int($load);
+		last;
 	    }
 	}
 	if ($count > 0) {
