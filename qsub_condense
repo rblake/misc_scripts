@@ -3,7 +3,7 @@
 use strict;
 use Cwd 'abs_path';
 use IPC::Open2;
-
+use File::Basename;
 
 my $processors_per_node = 8;
 
@@ -49,9 +49,12 @@ my @files;
 my %procs;
 my %names;
 my %output_directives;
+my %directories;
 foreach my $file (@ARGV) {
     # get the full path of the file
     my $absfile = abs_path($file);
+    my ($filename, $directory, $suffix) = fileparse($absfile);
+    $directories{$absfile} = $directory;
 
     #search through the file and get the number of processes it needs.
     open(SCRIPT, $file) or die "Can't open file $file: $!\n";
@@ -171,7 +174,9 @@ EOF
 	for (my $ii=0; $ii<$procs{$file}; $ii++) {
 	    print OUTPUT "read -u9 line; echo \$line >> \$PBS_NODEFILE\n";
 	}
-	
+
+	#set the PBS_O_WORKDIR to the location of the script.
+	print OUTPUT qq|export PBS_O_WORKDIR="$directories{$file}"\n"|;
 	#run the script.
 	print OUTPUT "bash $file $output_directives{$file} &\n";
     }
