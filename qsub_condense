@@ -10,7 +10,7 @@ my $processors_per_node = 8;
 sub usage {
     my $p = $processors_per_node;
     print <<EOF
-Usage: $0 job1.sh [job2.sh [job3.sh ...]]
+Usage: $0 [options] job1.sh [job2.sh [job3.sh ...]]
 
 Submits all your jobs scripts, but tries to combine smaller jobs
 together into groups of $p to ensure that you allocate the minimum
@@ -50,7 +50,14 @@ my %procs;
 my %names;
 my %output_directives;
 my %directories;
-foreach my $file (@ARGV) {
+my @qsub_options;
+foreach my $option (@ARGV) {
+    # see if the item passed in is a file
+    if (not (-e $option and -f $option and -r $option)) {
+        push @qsub_options, $option;
+	continue;
+    }
+    my $file = $option;
     # get the full path of the file
     my $absfile = abs_path($file);
     my ($filename, $directory, $suffix) = fileparse($absfile);
@@ -138,7 +145,7 @@ foreach my $bin (@$bins) {
 
     # write out the actual qsub script
     #open(OUTPUT, ">test$counter"); $counter++;
-    open2(\*INPUT, \*OUTPUT, 'qsub');
+    open2(\*INPUT, \*OUTPUT, 'qsub '+join(" ",@qsub_options));
 
     print OUTPUT <<EOF
 #!/bin/bash
