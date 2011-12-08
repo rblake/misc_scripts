@@ -55,7 +55,7 @@ foreach my $option (@ARGV) {
     # see if the item passed in is a file
     if (not (-e $option and -f $option and -r $option)) {
         push @qsub_options, $option;
-	continue;
+	next;
     }
     my $file = $option;
     # get the full path of the file
@@ -145,7 +145,7 @@ foreach my $bin (@$bins) {
 
     # write out the actual qsub script
     #open(OUTPUT, ">test$counter"); $counter++;
-    open2(\*INPUT, \*OUTPUT, 'qsub '+join(" ",@qsub_options));
+    open2(\*INPUT, \*OUTPUT, 'qsub '.join(" ",@qsub_options));
 
     print OUTPUT <<EOF
 #!/bin/bash
@@ -164,7 +164,7 @@ foreach my $bin (@$bins) {
 #PBS -l walltime=24000:00:00
 ##################################
 
-cd $PBS_O_WORKDIR
+cd \$PBS_O_WORKDIR
 
 export original_pbs_nodefile="\$PBS_NODEFILE"
 exec 9<\$original_pbs_nodefile
@@ -183,7 +183,7 @@ EOF
 	}
 
 	#set the PBS_O_WORKDIR to the location of the script.
-	print OUTPUT qq|export PBS_O_WORKDIR="$directories{$file}"\n"|;
+	print OUTPUT qq|export PBS_O_WORKDIR="$directories{$file}"\n|;
 	#run the script.
 	print OUTPUT "bash $file $output_directives{$file} &\n";
     }
