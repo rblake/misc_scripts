@@ -4,6 +4,7 @@ use strict;
 use Cwd 'abs_path';
 use IPC::Open2;
 use File::Basename;
+require File::Spec;
 
 my $processors_per_node = 8;
 
@@ -84,16 +85,24 @@ foreach my $option (@ARGV) {
     $procs{$absfile} = $this_proc_count;
     $output_directives{$absfile} = "";
     if ($output) {
-	$output_directives{$absfile} .= " >| $output";
+	if (file_name_is_absolute($output)) {
+	    $output_directives{$absfile} .= " >| $output";
+	} else {
+	    $output_directives{$absfile} .= " >| $directory/$output";
+	}
     } else {
-	$output_directives{$absfile} .= " >| $names{$absfile}.o\$PBS_JOBID";
+	$output_directives{$absfile} .= " >| $directory/$names{$absfile}.o\$PBS_JOBID";
     }
     if ($error) {
-	$output_directives{$absfile} .= " 2>| $error";	
+	if (file_name_is_absolute($error)) {
+	    $output_directives{$absfile} .= " 2>| $error";	
+	} else {
+	    $output_directives{$absfile} .= " 2>| $directory/$error";	
+	}
     } elsif ($join_std_err) {
 	$output_directives{$absfile} .= " 2>&1";	
     } else {
-	$output_directives{$absfile} .= " 2>| $names{$absfile}.e\$PBS_JOBID";	
+	$output_directives{$absfile} .= " 2>| $directory/$names{$absfile}.e\$PBS_JOBID";	
     }
     push @files, $absfile;
 }
