@@ -4,7 +4,7 @@ use strict;
 use Cwd 'abs_path';
 use IPC::Open2;
 use File::Basename;
-require File::Spec::Functions;
+use File::Spec::Functions;
 
 my $processors_per_node = 8;
 
