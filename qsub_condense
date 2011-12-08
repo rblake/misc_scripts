@@ -66,7 +66,7 @@ foreach my $option (@ARGV) {
 
     #search through the file and get the number of processes it needs.
     open(SCRIPT, $file) or die "Can't open file $file: $!\n";
-    $names{$absfile}=$file;
+    $names{$absfile}='';
     my $this_proc_count = 0;
     my $join_std_err = 0;
     my $output = '';
@@ -91,7 +91,11 @@ foreach my $option (@ARGV) {
 	    $output_directives{$absfile} .= " >| $directory/$output";
 	}
     } else {
-	$output_directives{$absfile} .= " >| $directory/$names{$absfile}.o\$PBS_JOBID";
+	if ($names{$absfile}) {
+	    $output_directives{$absfile} .= " >| $directory/$names{$absfile}.o\$PBS_JOBID";
+	} else {
+	    $output_directives{$absfile} .= " >| $absfile.o\$PBS_JOBID";
+	}
     }
     if ($error) {
 	if (file_name_is_absolute($error)) {
@@ -102,8 +106,13 @@ foreach my $option (@ARGV) {
     } elsif ($join_std_err) {
 	$output_directives{$absfile} .= " 2>&1";	
     } else {
-	$output_directives{$absfile} .= " 2>| $directory/$names{$absfile}.e\$PBS_JOBID";	
+	if ($names{$absfile}) {
+	    $output_directives{$absfile} .= " 2>| $directory/$names{$absfile}.e\$PBS_JOBID";	
+	} else {
+	    $output_directives{$absfile} .= " 2>| $absfile.e\$PBS_JOBID";
+	}
     }
+    $names{$absfile} = $file if not $names{$absfile}; 
     push @files, $absfile;
 }
 
