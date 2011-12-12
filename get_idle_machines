@@ -11,8 +11,14 @@ foreach my $line (<COMMAND>) {
 }
 close(COMMAND);
 
+my $processors_per_node=8;
+my $cluster_capacity=220*$processors_per_node;
+my $allocated_count=0;
+my $wasted_count=0;
+
 foreach my $job (@jobs) {
     my %stats = get_job_stats($job);
+    next if ($stats{queue} ne 'dque'); #only look at the main queue.
 
     # this stuff is currently unused
     my %hostcount;
@@ -36,11 +42,11 @@ foreach my $job (@jobs) {
 	# leave one processor on each machine
 	#$count--;
 
-	my $count = 8;
+	my $count = $processors_per_node;
 	
 	open(COMMAND, "ssh -n $machine 'uptime' |") or next;
 	foreach my $line (<COMMAND>) {
-	    if ($line =~ /load average:\s+\S+,\s+\S+,\s+(\d*\.\d+)/) {
+	    if ($line =~ /load average:\s+\S+,\s+\S+,\s+(\d*\.?\d+)/) {
 		my $load = $1;
 		$load += 0.70; # round up.
 		$count -= int($load);
@@ -53,7 +59,12 @@ foreach my $job (@jobs) {
 	close(COMMAND);
     }
     print "$stats{Job_Id}\t$stats{Job_Owner}\t$stats{Job_Name}\t$unused_count\n" if $unused_count;
+    $wasted_count += $unused_count;
+    $allocated_count += $processors_per_node*scalar(keys(%hostcount));
 }
+print "\n\nTotals:\n";
+print sprintf("Processors allocated: %3d (%3.1f%%)\n", $allocated_count, 100.0*$allocated_count/$cluster_capacity);
+print sprintf("Processors wasted:    %3d (%3.1f%%)\n", $wasted_count, 100.0*$wasted_count/$cluster_capacity);
 exit(0);
 
 sub get_job_stats {
