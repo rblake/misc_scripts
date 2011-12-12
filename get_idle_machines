@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 
 use strict;
+use List::Util qw[min max];
 
 open(COMMAND, "qstat -r |");
 my @jobs;
@@ -47,7 +48,12 @@ foreach my $job (@jobs) {
 	open(COMMAND, "ssh -n $machine 'uptime' |") or next;
 	foreach my $line (<COMMAND>) {
 	    if ($line =~ /load average:\s+(\d*\.?\d+),\s+(\d*\.?\d+),\s+(\d*\.?\d+)/) {
-		my $load = $2;
+		# $1= 1 min average, $2= 5 min average, $3= 15 min average.
+		# $3 is probably the truest capture, but it fails for short jobs.
+		# I'm going to suggest we just pick the max of all three-- this works
+		# for short jobs and long jobs.  It also over compensates for bursty jobs,
+		# yeilding more false negatives than false positives.
+		my $load = max($1,$2,$3);
 		$load += 0.70; # round up.
 		$count -= int($load);
 		last;
