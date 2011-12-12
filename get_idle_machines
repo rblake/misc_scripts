@@ -46,8 +46,8 @@ foreach my $job (@jobs) {
 	
 	open(COMMAND, "ssh -n $machine 'uptime' |") or next;
 	foreach my $line (<COMMAND>) {
-	    if ($line =~ /load average:\s+\S+,\s+\S+,\s+(\d*\.?\d+)/) {
-		my $load = $1;
+	    if ($line =~ /load average:\s+(\d*\.?\d+),\s+(\d*\.?\d+),\s+(\d*\.?\d+)/) {
+		my $load = $2;
 		$load += 0.70; # round up.
 		$count -= int($load);
 		last;
