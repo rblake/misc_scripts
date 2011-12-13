@@ -19,6 +19,7 @@ my $wasted_count=0;
 
 foreach my $job (@jobs) {
     my %stats = get_job_stats($job);
+    next if not %stats;
     next if ($stats{queue} ne 'dque'); #only look at the main queue.
 
     # this stuff is currently unused
@@ -76,10 +77,10 @@ exit(0);
 sub get_job_stats {
     my ($job_id) = @_;
     my %stats;
+    my $command;
+    open($command, "qstat -f $job_id |") or return %stats;
     $stats{Job_Id} = $job_id;
 
-    my $command;
-    open($command, "qstat -f $job_id |");
     #search for exec host line
     my $found_exec_host=0;
     my $line=<$command>; #strip first line.
