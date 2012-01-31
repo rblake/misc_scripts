@@ -158,6 +158,8 @@ my $counter = 0;
 foreach my $bin (@$bins) {
     my @bin_files = @{$bin->{files}};
     my $job_name = join(":", @names{@bin_files});
+    # limit the job name to 250 characters
+    $job_name = substr($job_name, 0, 250);
     my $node_count = int(($bin->{proc_count}+$processors_per_node-1)/$processors_per_node);
 
 
