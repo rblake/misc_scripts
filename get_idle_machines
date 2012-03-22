@@ -20,6 +20,7 @@ my $wasted_count=0;
 foreach my $job (@jobs) {
     my %stats = get_job_stats($job);
     next if not %stats;
+    next if not $stats{queue};
     next if ($stats{queue} ne 'dque'); #only look at the main queue.
 
     # this stuff is currently unused
